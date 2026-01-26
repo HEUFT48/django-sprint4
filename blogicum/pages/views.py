@@ -3,37 +3,35 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views.generic.edit import UpdateView
-from django.views.generic import CreateView
-from django.core.paginator import Paginator
+from django.views.generic import View
 from django.urls import reverse_lazy
 from django.contrib.auth import get_user_model
 
+from blog.models import Post
+from .utils import paginate_page
+
 
 def home(request):
-    from blog.models import Post
     posts_list = Post.objects.filter(is_published=True).order_by('-pub_date')
-    paginator = Paginator(posts_list, 10)
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
-
+    page_obj = paginate_page(request, posts_list, posts_per_page=10)
     return render(request, 'pages/home.html', {'page_obj': page_obj})
 
 
 @login_required
 def profile(request, username):
     profile_user = get_object_or_404(User, username=username)
-    from blog.models import Post
-    if request.user == profile_user:
-        posts_list = Post.objects.filter(author=profile_user
-                                         ).order_by('-pub_date')
-    else:
-        posts_list = Post.objects.filter(author=profile_user,
-                                         is_published=True
-                                         ).order_by('-pub_date')
 
-    paginator = Paginator(posts_list, 10)
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
+    if request.user == profile_user:
+        posts_list = Post.objects.filter(
+            author=profile_user
+        ).order_by('-pub_date')
+    else:
+        posts_list = Post.objects.filter(
+            author=profile_user,
+            is_published=True
+        ).order_by('-pub_date')
+
+    page_obj = paginate_page(request, posts_list, posts_per_page=10)
 
     context = {
         'profile_user': profile_user,
@@ -60,14 +58,14 @@ def rules(request):
     return render(request, 'pages/rules.html')
 
 
-class AboutView(CreateView):
+class AboutView(View):
     template_name = 'pages/about.html'
 
     def get(self, request, *args, **kwargs):
         return render(request, self.template_name)
 
 
-class RulesView(CreateView):
+class RulesView(View):
     template_name = 'pages/rules.html'
 
     def get(self, request, *args, **kwargs):

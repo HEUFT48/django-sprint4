@@ -2,23 +2,13 @@ from django.db import models
 from django.contrib.auth import get_user_model
 from django.core.validators import MinLengthValidator
 
+from . import constants
+
 User = get_user_model()
 
 
-class Category(models.Model):
-    title = models.CharField(
-        max_length=256,
-        verbose_name='Заголовок'
-    )
-    description = models.TextField(
-        verbose_name='Описание'
-    )
-    slug = models.SlugField(
-        unique=True,
-        verbose_name='Идентификатор',
-        help_text=('Идентификатор страницы для URL; '
-                   'разрешены символы латиницы, цифры, дефис и подчёркивание.')
-    )
+class TimeStampedPublishedModel(models.Model):
+
     is_published = models.BooleanField(
         default=True,
         verbose_name='Опубликовано',
@@ -30,6 +20,29 @@ class Category(models.Model):
     )
 
     class Meta:
+        abstract = True
+
+
+class Category(TimeStampedPublishedModel):
+    title = models.CharField(
+        max_length=constants.TITLE_MAX_LENGTH,
+        verbose_name='Заголовок'
+    )
+    description = models.TextField(
+        verbose_name='Описание',
+        validators=[MinLengthValidator(constants.MIN_LENGTH_DESCRIPTION)]
+    )
+    slug = models.SlugField(
+        unique=True,
+        max_length=constants.SLUG_MAX_LENGTH,
+        verbose_name='Идентификатор',
+        help_text=(
+            'Идентификатор страницы для URL; '
+            'разрешены символы латиницы, цифры, дефис и подчёркивание.'
+        )
+    )
+
+    class Meta:
         verbose_name = 'категория'
         verbose_name_plural = 'Категории'
 
@@ -37,19 +50,15 @@ class Category(models.Model):
         return self.title
 
 
-class Location(models.Model):
+class Location(TimeStampedPublishedModel):
     name = models.CharField(
-        max_length=256,
+        max_length=constants.NAME_MAX_LENGTH,
         verbose_name='Название места'
     )
     is_published = models.BooleanField(
         default=True,
         verbose_name='Опубликовано',
         help_text='Снимите галочку, чтобы скрыть местоположение.'
-    )
-    created_at = models.DateTimeField(
-        auto_now_add=True,
-        verbose_name='Добавлено'
     )
 
     class Meta:
@@ -60,18 +69,21 @@ class Location(models.Model):
         return self.name
 
 
-class Post(models.Model):
+class Post(TimeStampedPublishedModel):
     title = models.CharField(
-        max_length=256,
+        max_length=constants.TITLE_MAX_LENGTH,
         verbose_name='Заголовок'
     )
-    text = models.TextField(verbose_name='Текст',
-                            validators=[MinLengthValidator(10)]
-                            )
+    text = models.TextField(
+        verbose_name='Текст',
+        validators=[MinLengthValidator(constants.MIN_LENGTH_DESCRIPTION)]
+    )
     pub_date = models.DateTimeField(
         verbose_name='Дата и время публикации',
-        help_text='Если установить дату и время в будущем — можно делать '
-        'отложенные публикации.'
+        help_text=(
+            'Если установить дату и время в будущем — '
+            'можно делать отложенные публикации.'
+        )
     )
     author = models.ForeignKey(
         User,
@@ -94,14 +106,6 @@ class Post(models.Model):
         verbose_name='Категория',
         related_name='posts'
     )
-    is_published = models.BooleanField(
-        default=True,
-        verbose_name='Опубликовано'
-    )
-    created_at = models.DateTimeField(
-        auto_now_add=True,
-        verbose_name='Добавлено'
-    )
     image = models.ImageField(
         upload_to='posts/',
         blank=True,
@@ -109,14 +113,6 @@ class Post(models.Model):
         verbose_name='Изображение',
         help_text='Загрузите изображение для публикации'
     )
-
-    class Meta:
-        verbose_name = 'публикация'
-        verbose_name_plural = 'Публикации'
-        ordering = ['-pub_date']
-
-    def __str__(self):
-        return self.title
 
     class Meta:
         verbose_name = 'публикация'
@@ -142,7 +138,7 @@ class Comment(models.Model):
     )
     text = models.TextField(
         verbose_name='Текст комментария',
-        validators=[MinLengthValidator(3)]
+        validators=[MinLengthValidator(constants.MIN_LENGTH_COMMENT)]
     )
     created_at = models.DateTimeField(
         auto_now_add=True,
@@ -152,7 +148,7 @@ class Comment(models.Model):
     class Meta:
         verbose_name = 'комментарий'
         verbose_name_plural = 'Комментарии'
-        ordering = ['created_at']  # старые сначала
+        ordering = ['created_at']
 
     def __str__(self):
         return f'Комментарий от {self.author} к "{self.post.title}"'

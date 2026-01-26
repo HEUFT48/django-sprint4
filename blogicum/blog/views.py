@@ -2,8 +2,8 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.http import Http404
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.views.generic import CreateView, UpdateView, DeleteView
-from django.urls import reverse_lazy
-from django.core.paginator import Paginator
+from django.urls import reverse
+from django.core.paginator import Paginator  # ← ДОБАВИТЬ ЭТОТ ИМПОРТ
 from django.utils import timezone
 from django.db.models import Q, Count
 from django.contrib import messages
@@ -16,7 +16,6 @@ from django.contrib.auth.models import User
 from django.contrib.auth.decorators import login_required
 
 
-# КЛАСС ДЛЯ РЕДАКТИРОВАНИЯ ПРОФИЛЯ
 class CustomUserChangeForm(UserChangeForm):
     class Meta:
         model = User
@@ -46,11 +45,6 @@ def home(request):
 
 
 def index(request):
-    print(
-        f"DEBUG: User: {request.user}, "
-        f"authenticated: {request.user.is_authenticated}"
-    )
-
     posts = Post.objects.select_related(
         'category', 'location', 'author'
     ).filter(
@@ -58,8 +52,6 @@ def index(request):
         Q(category__is_published=True),
         Q(pub_date__lte=timezone.now())
     ).order_by('-pub_date')
-
-    print(f"DEBUG: Found {posts.count()} posts")
 
     posts = posts.annotate(comment_count=Count('comments'))
 
@@ -83,14 +75,15 @@ def post_detail(request, id):
         id=id
     )
 
-    if not post.is_published and request.user != post.author:
-        raise Http404("Пост не найден")
+    is_author = request.user == post.author
 
-    if not post.category.is_published and request.user != post.author:
-        raise Http404("Категория не найдена")
-
-    if post.pub_date > timezone.now() and request.user != post.author:
-        raise Http404("Пост еще не опубликован")
+    if not is_author:
+        if not post.is_published:
+            raise Http404("Пост не найден")
+        if not post.category.is_published:
+            raise Http404("Категория не найдена")
+        if post.pub_date > timezone.now():
+            raise Http404("Пост еще не опубликован")
 
     comments = post.comments.select_related('author').all()
 
@@ -107,7 +100,7 @@ def post_detail(request, id):
         'post': post_with_counts or post,
         'form': SimpleCommentForm(),
         'comments': comments,
-        'is_post_author': request.user == post.author,
+        'is_post_author': is_author,
     }
     return render(request, 'blog/detail.html', context)
 
@@ -193,8 +186,8 @@ class PostCreateView(LoginRequiredMixin, CreateView):
         return super().form_valid(form)
 
     def get_success_url(self):
-        return reverse_lazy('blog:profile',
-                            kwargs={'username': self.request.user.username})
+        return reverse('blog:profile',
+                       kwargs={'username': self.request.user.username})
 
 
 class PostEditView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
@@ -210,7 +203,7 @@ class PostEditView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
         return redirect('blog:post_detail', id=self.kwargs.get('pk'))
 
     def get_success_url(self):
-        return reverse_lazy('blog:post_detail', kwargs={'id': self.object.id})
+        return reverse('blog:post_detail', kwargs={'id': self.object.id})
 
 
 class PostDeleteView(LoginRequiredMixin, UserPassesTestMixin, DeleteView):
@@ -226,8 +219,8 @@ class PostDeleteView(LoginRequiredMixin, UserPassesTestMixin, DeleteView):
         return redirect('blog:post_detail', id=self.kwargs.get('pk'))
 
     def get_success_url(self):
-        return reverse_lazy('blog:profile',
-                            kwargs={'username': self.request.user.username})
+        return reverse('blog:profile',
+                       kwargs={'username': self.request.user.username})
 
 
 class CommentEditView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
@@ -244,8 +237,8 @@ class CommentEditView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
         return redirect('blog:post_detail', id=comment.post.id)
 
     def get_success_url(self):
-        return reverse_lazy('blog:post_detail',
-                            kwargs={'id': self.object.post.id})
+        return reverse('blog:post_detail',
+                       kwargs={'id': self.object.post.id})
 
 
 class CommentCreateView(LoginRequiredMixin, CreateView):
@@ -261,8 +254,8 @@ class CommentCreateView(LoginRequiredMixin, CreateView):
         return super().form_valid(form)
 
     def get_success_url(self):
-        return reverse_lazy('blog:post_detail',
-                            kwargs={'id': self.kwargs['post_id']})
+        return reverse('blog:post_detail',
+                       kwargs={'id': self.kwargs['post_id']})
 
 
 class CommentDeleteView(LoginRequiredMixin, UserPassesTestMixin, DeleteView):
@@ -284,4 +277,4 @@ class CommentDeleteView(LoginRequiredMixin, UserPassesTestMixin, DeleteView):
 
     def get_success_url(self):
         post_id = self.kwargs.get('post_id') or self.object.post.id
-        return reverse_lazy('blog:post_detail', kwargs={'id': post_id})
+        return reverse('blog:post_detail', kwargs={'id': post_id})

@@ -1,5 +1,7 @@
 from django.urls import path
+
 from . import views
+
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.forms import UserChangeForm
 from django.views.generic.edit import UpdateView
