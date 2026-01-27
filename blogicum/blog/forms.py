@@ -30,3 +30,10 @@ class CustomUserChangeForm(UserChangeForm):
         widgets = {
             'password': forms.HiddenInput(),
         }
+
+
+class SimpleCommentForm(forms.Form):
+    text = forms.CharField(
+        widget=forms.Textarea(
+            attrs={'rows': 3, 'placeholder': 'Введите комментарий'})
+    )

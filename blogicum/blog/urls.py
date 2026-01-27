@@ -2,32 +2,8 @@ from django.urls import path
 
 from . import views
 
-from django.contrib.auth.mixins import LoginRequiredMixin
-from django.contrib.auth.forms import UserChangeForm
-from django.views.generic.edit import UpdateView
-from django.contrib.auth.forms import UserChangeForm
-from django.contrib.auth.models import User
-from django import forms
+
 app_name = 'blog'
-
-
-class CustomUserChangeForm(UserChangeForm):
-    class Meta:
-        model = User
-        fields = ('first_name', 'last_name', 'email')
-        widgets = {
-            'password': forms.HiddenInput(),
-        }
-
-
-class ProfileUpdateView(LoginRequiredMixin, UpdateView):
-    template_name = 'blog/user.html'
-    form_class = CustomUserChangeForm
-    success_url = '/'
-
-    def get_object(self):
-        # Возвращаем текущего пользователя
-        return self.request.user
 
 
 urlpatterns = [

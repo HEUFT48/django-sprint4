@@ -1,40 +1,29 @@
-from django.shortcuts import render, get_object_or_404, redirect
-from django.http import Http404
-from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
-from django.views.generic import CreateView, UpdateView, DeleteView
-from django.urls import reverse
-from django.core.paginator import Paginator  # ← ДОБАВИТЬ ЭТОТ ИМПОРТ
-from django.utils import timezone
-from django.db.models import Q, Count
 from django.contrib import messages
-from django import forms
-from .models import Post, Category, Comment
 from django.contrib.auth import get_user_model
-
-from django.contrib.auth.forms import UserChangeForm
-from django.contrib.auth.models import User
 from django.contrib.auth.decorators import login_required
-
-
-class CustomUserChangeForm(UserChangeForm):
-    class Meta:
-        model = User
-        fields = ('first_name', 'last_name', 'email')
-        widgets = {
-            'password': forms.HiddenInput(),
-        }
+from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
+from django.core.paginator import Paginator
+from django.db.models import Q, Count
+from django.http import Http404
+from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
+from django.utils import timezone
+from django.views.generic import CreateView, DeleteView, UpdateView
+from .forms import CustomUserChangeForm, SimpleCommentForm
+from .models import Category, Comment, Post
 
 
 @login_required
 def edit_profile(request):
-    if request.method == 'POST':
-        form = CustomUserChangeForm(request.POST, instance=request.user)
-        if form.is_valid():
-            form.save()
-            messages.success(request, 'Профиль успешно обновлен!')
-            return redirect('blog:profile', username=request.user.username)
-    else:
-        form = CustomUserChangeForm(instance=request.user)
+    form = CustomUserChangeForm(
+        request.POST if request.method == 'POST' else None,
+        instance=request.user
+    )
+
+    if request.method == 'POST' and form.is_valid():
+        form.save()
+        messages.success(request, 'Профиль успешно обновлен!')
+        return redirect('blog:profile', username=request.user.username)
 
     return render(request, 'blog/user.html', {'form': form})
 
@@ -58,9 +47,6 @@ def index(request):
     paginator = Paginator(posts, 10)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
-
-    class SimpleCommentForm(forms.Form):
-        text = forms.CharField(widget=forms.Textarea(attrs={'rows': 3}))
 
     context = {
         'page_obj': page_obj,
@@ -86,12 +72,6 @@ def post_detail(request, id):
             raise Http404("Пост еще не опубликован")
 
     comments = post.comments.select_related('author').all()
-
-    class SimpleCommentForm(forms.Form):
-        text = forms.CharField(
-            widget=forms.Textarea(
-                attrs={'rows': 3, 'placeholder': 'Введите комментарий'})
-        )
 
     post_with_counts = Post.objects.filter(
         id=post.id).annotate(comment_count=Count('comments')).first()
@@ -125,10 +105,6 @@ def category_posts(request, category_slug):
     paginator = Paginator(posts, 10)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
-
-    class SimpleCommentForm(forms.Form):
-        text = forms.CharField(widget=forms.Textarea(attrs={'rows': 3}))
-
     context = {
         'category': category,
         'page_obj': page_obj,
@@ -160,9 +136,6 @@ def profile(request, username):
     paginator = Paginator(posts, 10)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
-
-    class SimpleCommentForm(forms.Form):
-        text = forms.CharField(widget=forms.Textarea(attrs={'rows': 3}))
 
     context = {
         'profile': user,
@@ -278,3 +251,12 @@ class CommentDeleteView(LoginRequiredMixin, UserPassesTestMixin, DeleteView):
     def get_success_url(self):
         post_id = self.kwargs.get('post_id') or self.object.post.id
         return reverse('blog:post_detail', kwargs={'id': post_id})
+
+
+class ProfileUpdateView(LoginRequiredMixin, UpdateView):
+    template_name = 'blog/user.html'
+    form_class = CustomUserChangeForm
+    success_url = '/'
+
+    def get_object(self):
+        return self.request.user
