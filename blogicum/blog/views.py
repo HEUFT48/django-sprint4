@@ -2,21 +2,22 @@ from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
-from django.core.paginator import Paginator
 from django.db.models import Q, Count
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
 from django.views.generic import CreateView, DeleteView, UpdateView
+
 from .forms import CustomUserChangeForm, SimpleCommentForm
 from .models import Category, Comment, Post
+from .utils import paginate_page
 
 
 @login_required
 def edit_profile(request):
     form = CustomUserChangeForm(
-        request.POST if request.method == 'POST' else None,
+        request.POST or None,
         instance=request.user
     )
 
@@ -29,7 +30,6 @@ def edit_profile(request):
 
 
 def home(request):
-    """Главная страница сайта"""
     return index(request)
 
 
@@ -44,9 +44,7 @@ def index(request):
 
     posts = posts.annotate(comment_count=Count('comments'))
 
-    paginator = Paginator(posts, 10)
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
+    page_obj = paginate_page(request, posts, posts_per_page=10)
 
     context = {
         'page_obj': page_obj,
@@ -65,11 +63,11 @@ def post_detail(request, id):
 
     if not is_author:
         if not post.is_published:
-            raise Http404("Пост не найден")
+            raise Http404('Пост не найден')
         if not post.category.is_published:
-            raise Http404("Категория не найдена")
+            raise Http404('Категория не найдена')
         if post.pub_date > timezone.now():
-            raise Http404("Пост еще не опубликован")
+            raise Http404('Пост еще не опубликован')
 
     comments = post.comments.select_related('author').all()
 
@@ -102,9 +100,7 @@ def category_posts(request, category_slug):
 
     posts = posts.annotate(comment_count=Count('comments'))
 
-    paginator = Paginator(posts, 10)
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
+    page_obj = paginate_page(request, posts, posts_per_page=10)
     context = {
         'category': category,
         'page_obj': page_obj,
@@ -133,9 +129,7 @@ def profile(request, username):
     posts = posts.annotate(comment_count=Count('comments')
                            ).order_by('-pub_date')
 
-    paginator = Paginator(posts, 10)
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
+    page_obj = paginate_page(request, posts, posts_per_page=10)
 
     context = {
         'profile': user,

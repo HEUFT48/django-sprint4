@@ -1,6 +1,7 @@
 from django.urls import path
 from django.views.generic import TemplateView
 from django.views.generic import RedirectView
+
 from .views import ProfileEditView
 
 app_name = 'pages'
